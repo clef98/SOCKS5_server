@@ -14,9 +14,9 @@ fn socket_IP(address: std::net::SocketAddr) -> Vec<u8> {
             ip.octects().to_vec();
         }
     };
-        for i in ip_vector.iter(){
-            output.push(*i);
-        }
+    for i in ip_vector.iter() {
+        output.push(*i);
+    }
     output.put_u16(address.port());
     output
 }
@@ -41,9 +41,10 @@ fn read_packets(address: String, mut stream: TcpStream) {
     let method_1 = buffer[1];
     let mut port_type = buffer[3];
     let mut flag = true;
-    match port_type{
+    match port_type {
         Ok(0x01) => {
-            reader.read_exact(&mut buffer[0..6]).flush()
+            reader.read_exact(&mut buffer[0..6]).flush();
+            println("Port has been selected.");
         }
         Ok(0x02) => {
             std::io::ErrorKind::ConnectionAborted;
