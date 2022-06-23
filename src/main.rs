@@ -72,34 +72,52 @@ fn handle_connection(address: String, mut stream: TcpStream) -> io::Result<()>{
     Ok(())
 }
 
-fn main() -> std::io::Result<()> {
-    println!("Please type the address you would like to connect to: ");
 
-    //env::args() collects CLIs into a vector. Only address is inputed into args.
-    let args: Vec<String> = std::env::args().collect();
-    let address:&str  = &args[1];
+fn main() {
+    println!("Hello, world!");
 
-    //TCPListener binds to the given address and prepares for incoming TCP connections, unwrap calls panic macro in case address is not valid.
-    let listener = TcpListener::bind(address).unwrap();
+
+    /*
+    Determine TCP or UDP
+     */
+
+    // pass address to our boys in the back
+    let address = "127.0.0.1:8200";
+    tcp_listener(address);
+    println!("Shutting down server listener");
+}
+
+fn tcp_listener(address: &str) {
+
+    // set up listener binded to port at address
+    let listener = match TcpListener::bind(address) {
+        Ok(listener) => listener,
+        Err(e) => {
+            println!("Could not bind to address specified: {:?}", e);
+            return;
+        }
+    };
+    println!("Server listening on {}", address);
+
+    // listen for incoming connections
     for stream in listener.incoming() {
-
-        //Clone of address is made per each stream because life of address clones ends in the thread. For a stream, we enter a new thread that process handle_connection.
-        let address_clone = address.to_string().clone();
-
-        //Switch case for validation of TCPStream, where Ok creates a new thread (simultaneous process) to handle the newfound connection.
         match stream {
             Ok(stream) => {
-                std::thread::spawn(move || { handle_connection(address_clone, stream) });
+                let addr = match stream.peer_addr() {
+                    Ok(addy) => addy,
+                    Err(e) => {
+                        println!("Could not peer address: {:?}", e);
+                        return;
+                    }
+                };
+                println!("New connection: {}", addr);
+                thread::spawn(move || {
+                    handle_connection(stream);
+                });
             }
-
-            //If stream is not able to be used in Ok, e.g. is not TCPStream, an Err value will return containing information about the error, not matching the Ok(stream) pattern.
             Err(e) => {
-                println!("Failed to receive messages: {}", e);
-                std::process::exit(1);
+                println!("Could not receive connection: {:?}", e);
             }
         }
     }
-
-    //For std::io::Result<()>, might add improved error catching.
-    Ok(())
 }
