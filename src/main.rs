@@ -1,75 +1,191 @@
-use std::io::Write;
-use std::io;
-use std::net::{TcpStream, TcpListener};
-use std::io::Read;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
+extern crate core;
+
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6, TcpListener, TcpStream};
+use std::{thread};
+
+const SOCKS5VER: u8 = 0x05;
+const RESERVED: u8 = 0x00;
+const CMDCONNECT: u8 = 0x01;
+
+#[allow(dead_code)]
+#[repr(u8)]
+enum Methods {
+    NoAuthenticationRequired = 0x00,
+    GSSAPI = 0x01,
+    UsernamePassword = 0x02,
+    NoAcceptableMethods = 0xFF,
+}
+
+#[allow(dead_code)]
+#[repr(u8)]
+enum ReplyCode {
+    Succeeded = 0x00,
+    Failure = 0x01,
+    NotAllowed = 0x02,
+    NetworkUnreachable = 0x03,
+    HostUnreachable = 0x04,
+    ConnectionRefused = 0x05,
+    TTLExpired = 0x06,
+    CommandUnsupported = 0x07,
+    AddressUnsupported = 0x08,
+}
+
+#[allow(dead_code)]
+mod addr_type {
+    pub const IPV4: u8 = 0x01;
+    pub const DOMAIN: u8 = 0x03;
+    pub const IPV6: u8 = 0x04;
+}
+
+fn handle_connection(mut client_stream: TcpStream) {
+    let mut nmethods_buffer: [u8; 2] = [0; 2];
+    println!("Received connection request from {:?}", client_stream);
 
 
-fn handle_connection(address: String, mut stream: TcpStream) -> io::Result<()>{
+// read [Ver: 0x05] [CMD: 0x01] [RSV: 0x00] [ATYP] [DST.ADDR] [DST.PORT]
+    if client_stream.read(&mut nmethods_buffer).is_err() {
+        println!("Error with reading first two bytes in request.");
+        return;
+    };
+//implement authentication
 
-    //Size buffer (vector) to be filled with data from stream. Not sure if u8 is correct size.
-    let mut buffer:Vec<u8> = vec![0; 512];
-
-    //First two pieces of data are read in from stream into buffer indices, expect working as unwrap except providing a identifiable location for the error.
-    stream.read(&mut buffer[0..2]).expect("Error with reading stream.");
-
-    //Version and method are checked from client request, as only SOCKS5 and CONNECT are accepted, with
-    // their corresponding hexadecimals below. Errors are returned if not found and the connection is aborted.
-    if buffer[0] != 0x05 {
-        return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
+    if nmethods_buffer[0] != SOCKS5VER {
+        println!("Error with unsupported protocol.");
+        return;
+//Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
     }
 
-    //UDP ASSOCIATE and BIND are not supported.
-    if buffer[1] != 0x01 {
-        return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only connect cmd is supported!"));
+
+    let nmethods = nmethods_buffer[1];
+    let mut methods_vec: Vec<u8> = vec![0; nmethods as usize];
+
+    if client_stream.read(&mut methods_vec).is_err() {
+        println!("Could not read client's stream");
+        return;
     }
 
-    //Writing back to the stream, where 0x05 confirms the protocal version of SOCKS5 and 0x00 is "succeeded" in the reply field.
-    stream.write(&[0x05u8, 0x00]).expect("Error with writing to stream.");
+//is 0x00 a method available
+    let mut iter = methods_vec.iter();
+    if iter.find(|&&x| x == (Methods::NoAuthenticationRequired as u8)).is_none() {
+        println!("Does not support methods");
+        return;
+    }
 
-    //Third indice of buffer is filled with ATYP, or the address type.
-    stream.read(&mut buffer[0..4]).expect("Error with reading stream.");
-    let port_type = buffer[3];
+
+    if client_stream.write(&[SOCKS5VER, Methods::NoAuthenticationRequired as u8]).is_err() {
+        println!("Issue reading stream.");
+        return;
+    }
+
+    let mut buffer: [u8; 4] = [0; 4];
+    if client_stream.read(&mut buffer).is_err() {
+        println!("Issue reading commands.");
+        return;
+    };
+    println!("buffer: {:?}", &buffer);
+// check buffer[0..3]
+    println!("protocol: {}", buffer[0]);
+    if buffer[0] != SOCKS5VER {
+        println!("Error with unsupported protocol.");
+        return;
+//Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
+    }
+
+//UDP ASSOCIATE and BIND are not supported.
+    if buffer[1] != CMDCONNECT {
+        println!("Error with unsupported commands: {}", buffer[1]);
+        return;
+//Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only connect cmd is supported!"));
+    }
+
+//vp4 10 bytes
+//vp6 14 bytes
+//domain 256 bytes
+//4 bytes are used for version, cmd, rsv, and atyp. That leaves # - 4 sized arrays for each address type.
 
 
-    //let mut flag = true;
-    //let mut port = String::new();
-
-    //Switch case where the portype is matched with the hexadeciamls of either IPv4, an error (0x02 is not supported by SOCKS5), a domainname, or IPV6 in that order.
-    //If the port_type is not received, then a error message is printed and the program exits.
-    match port_type {
-        0x01 => {
-
-            //IP address is 4 u8s here, port is 2 more u8s.
-            stream.read(&mut buffer[0..6]).expect("Unexpected request size, consult SOCKS5 protocal and try again. ");
-
-            //Extracts port number from buffer, 2 u8s.
-            let mut port_dest: u8 = Default::default();
-            port_dest = buffer[4..6].as_ref();
-
-            //IPV4 requires u8 by 4, an empty vector is initializd using default and the IP address is sliced in from derefencing buffer for 4 u8s. The IPv4Addr is assigned.
-            let mut address_vector: [u8; 4] = Default::default();
-            address_vector.copy_from_slice(&buffer[0..4]);
-            let IP_address = Ipv4Addr::from( address_vector);
-
-            //Connect using SocketAddrV4, passes in ip address and port.
-            let socket_v4 = SocketAddrV4::new(IP_address,port_dest.into());
-            println!("Port has been selected.");
-
+    let destination_stream_result: Result<TcpStream, ReplyCode> = match buffer[3] {
+        addr_type::IPV4 => {
+            let mut buffer_v4: [u8; 7] = [0; 7];
+            if client_stream.read(&mut buffer_v4).is_err() {
+                println!("Error reading IPV4 address.");
+                return;
+            };
+            ipv4_connection(&mut buffer_v4)
         }
-        0x03 => {
-            stream.read(&mut buffer[0..1]).expect("TODO: panic message");
+        addr_type::DOMAIN => {
+            domain_name_connection(&mut client_stream)
         }
-        0x04 => {
-            stream.read(&mut buffer[0..18]).expect("TODO: panic message");
+        addr_type::IPV6 => {
+            let mut buffer_v6: [u8; 13] = [0; 13];
+            if client_stream.read(&mut buffer_v6).is_err() {
+                println!("Error reading IPV6 address.");
+                return;
+            };
+            ipv6_connection(&mut buffer_v6)
         }
-
         _ => {
-            println!("Failed connection");
-            std::process::exit(1);
+            println!("Failed connection.");
+            return;
         }
+    };
+
+    let mut destination_stream = match destination_stream_result {
+        Ok(stream) => stream,
+        Err(e) => {
+            match e {
+                ReplyCode::NetworkUnreachable => {
+                    println!("Interruption in stream: Network Unreachable");
+                    return;
+                }
+                _ => {
+                    println!("General Failure");
+                    return;
+                }
+            }
+        }
+    };
+
+
+// connection succeeded
+// +----+-----+-------+------+----------+----------+
+// |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
+// +----+-----+-------+------+----------+----------+
+// | 1  |  1  | X'00' |  1   | Variable |    2     |
+// +----+-----+-------+------+----------+----------+
+
+    if client_stream.write(&[SOCKS5VER, ReplyCode::Succeeded as u8, RESERVED, addr_type::IPV4, 0, 0, 0, 0, 0, 0]).is_err() {
+        println!("Could not write to stream.");
+        return;
     }
-    Ok(())
+
+    let mut client_clone = match client_stream.try_clone() {
+        Ok(clone) => clone,
+        Err(e) => {
+            println!("Could not clone client stream: {:?}", e);
+            return;
+        }
+    };
+    let mut destination_clone = match destination_stream.try_clone() {
+        Ok(clone) => clone,
+        Err(e) => {
+            println!("Could not clone destination stream: {:?}", e);
+            return;
+        }
+    };
+
+    thread::spawn(move || {
+        if std::io::copy(&mut client_clone, &mut destination_clone).is_err() {
+            println!("Could not copy client stream to destination stream.");
+            return;
+        }
+    });
+
+    if std::io::copy(&mut destination_stream, &mut client_stream).is_err() {
+        println!("Could not copy destination stream to client stream.");
+        return;
+    }
 }
 
 
