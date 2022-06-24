@@ -1,5 +1,6 @@
 use std::io::Write;
 use std::iter;
+use std::io;
 use std::net::{IpAddr, Shutdown, TcpStream};
 
 fn socket_IP(address: std::net::SocketAddr) -> Vec<u8> {
@@ -61,9 +62,22 @@ fn read_packets(address: String, mut stream: TcpStream) {
     }
 }
 
-fn main() {
-    let matches = App::new("SOCKS5 Proxy Server Beginning")
-        .version(env!("CARGO_PKG_VERSION")).arg()
-    let bind_addr = String::from(matches.value_of("bind").unwrap_or("127.0.0.1"));
-    let bind_port = String::from(matches.value_of("port").unwrap_or("8080"));
+
+fn main() -> io::Result<()> {
+    println!("Please type the address you would like to connect to: ");
+    let args: Vec<String> = env::args().collect();
+    let address: &str = &args[1];
+    let listener = TcpListener::bind(address);
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                thread::spawn(move || { read_packets(address as String, stream) });
+            }
+            Err(e) => {
+                println!("Failed to receive messages: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+    Ok(())
 }
