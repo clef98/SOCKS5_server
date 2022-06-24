@@ -22,26 +22,21 @@ fn socket_IP(address: std::net::SocketAddr) -> Vec<u8> {
     output
 }
 
-fn read_packets(address: String, mut stream: TcpStream) {
+fn read_packets(address: String, mut stream: TcpStream) -> io::Result<()>{
     let mut reader = stream.clone();
     let mut writer = stream;
     let mut buffer = vec![0u8; 512];
     reader.read_exact(&mut buffer[0..2]);
-    let methods = buffer[1] as usize;
-    let mut auth = true;
-
-    for i in methods {
-        if buffer[i] = 0x00 {
-            auth = false;
-        }
-    }
-    if !auth {
-        std::io::ErrorKind::ConnectionAborted;
+    if buffer[0] != 0x05 {
+        return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "only socks5 protocol is supported!",));
     }
     writer.write(&[0x05u8, 0x00]).flush();
-    let method_1 = buffer[1];
+    reader.read_exact(&mut buffer[0..4]).await?;
+    let cmd = buffer[1];
+    //UDP ASSOCIATE AND BIND ARE NOT SUPPORTED.
     let mut port_type = buffer[3];
     let mut flag = true;
+    let mut port = new::String();
     match port_type {
         Ok(0x01) => {
             reader.read_exact(&mut buffer[0..6]).flush();
@@ -60,6 +55,7 @@ fn read_packets(address: String, mut stream: TcpStream) {
             flag = false;
         }
     }
+    Ok(())
 }
 
 
