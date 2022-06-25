@@ -2,12 +2,13 @@ use std::io::Write;
 use std::io;
 use std::net::{TcpStream, TcpListener};
 use std::io::Read;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 
 
 fn handle_connection(address: String, mut stream: TcpStream) -> io::Result<()>{
 
-    //Size buffer (vector) to be filled with data from stream.
-    let mut buffer = vec![0u8; 512];
+    //Size buffer (vector) to be filled with data from stream. Not sure if u8 is correct size.
+    let mut buffer:Vec<u8> = vec![0; 512];
 
     //First two pieces of data are read in from stream into buffer indices, expect working as unwrap except providing a identifiable location for the error.
     stream.read(&mut buffer[0..2]).expect("Error with reading stream.");
@@ -38,8 +39,23 @@ fn handle_connection(address: String, mut stream: TcpStream) -> io::Result<()>{
     //If the port_type is not received, then a error message is printed and the program exits.
     match port_type {
         0x01 => {
-            stream.read(&mut buffer[0..6]).expect("TODO: panic message");
+
+            //IP address is 4 u8s here, port is 2 more u8s.
+            stream.read(&mut buffer[0..6]).expect("Unexpected request size, consult SOCKS5 protocal and try again. ");
+
+            //Extracts port number from buffer, 2 u8s.
+            let mut port_dest: u8 = Default::default();
+            port_dest = buffer[4..6].as_ref();
+
+            //IPV4 requires u8 by 4, an empty vector is initializd using default and the IP address is sliced in from derefencing buffer for 4 u8s. The IPv4Addr is assigned.
+            let mut address_vector: [u8; 4] = Default::default();
+            address_vector.copy_from_slice(&buffer[0..4]);
+            let IP_address = Ipv4Addr::from( address_vector);
+
+            //Connect using SocketAddrV4, passes in ip address and port.
+            let socket_v4 = SocketAddrV4::new(IP_address,port_dest.into());
             println!("Port has been selected.");
+
         }
         0x02 => {
             return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Please input a proper address type in client request!"));
