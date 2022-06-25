@@ -57,9 +57,6 @@ fn handle_connection(address: String, mut stream: TcpStream) -> io::Result<()>{
             println!("Port has been selected.");
 
         }
-        0x02 => {
-            return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Please input a proper address type in client request!"));
-        }
         0x03 => {
             stream.read(&mut buffer[0..1]).expect("TODO: panic message");
         }
