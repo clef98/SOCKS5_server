@@ -237,3 +237,15 @@ fn tcp_listener(address: &str) {
         }
     }
 }
+
+
+fn ipv4_connection(buffer: &mut [u8; 7]) -> Result<TcpStream, ReplyCode> {
+    println!("Opening IPV4 Connection");
+
+    //IPV4 requires u8 by 4, an empty vector is initialized using default and the IP address is sliced in from derefencing buffer for 4 u8s. The IPv4Addr is assigned.
+    // let mut address_array: [u8; 4] = Default::default();
+    // address_array.copy_from_slice(buffer[4]);
+
+    let socket_v4 = SocketAddrV4::new(Ipv4Addr::new(buffer[0], buffer[1], buffer[2], buffer[3]), u16::from_be_bytes([buffer[4], buffer[5]]));
+    TcpStream::connect(socket_v4).map_err(| _ | ReplyCode::NetworkUnreachable)
+}
