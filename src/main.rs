@@ -249,3 +249,11 @@ fn ipv4_connection(buffer: &mut [u8; 7]) -> Result<TcpStream, ReplyCode> {
     let socket_v4 = SocketAddrV4::new(Ipv4Addr::new(buffer[0], buffer[1], buffer[2], buffer[3]), u16::from_be_bytes([buffer[4], buffer[5]]));
     TcpStream::connect(socket_v4).map_err(| _ | ReplyCode::NetworkUnreachable)
 }
+
+fn ipv6_connection(buffer: &mut [u8; 13]) -> Result<TcpStream, ReplyCode> {
+    println!("Opening IPV6 Connection");
+
+    let socket_v6 = SocketAddrV6::new(Ipv6Addr::new(buffer[0] as u16, buffer[1] as u16, buffer[2] as u16, buffer[3] as u16, buffer[4] as u16, buffer[5] as u16,
+                                                    buffer[6] as u16, buffer[7] as u16), u16::from_be_bytes([buffer[8], buffer[9]]), 0, 0);
+    TcpStream::connect(socket_v6).map_err(|_| ReplyCode::NetworkUnreachable)
+}
