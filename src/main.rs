@@ -247,7 +247,7 @@ fn ipv4_connection(buffer: &mut [u8; 7]) -> Result<TcpStream, ReplyCode> {
     // address_array.copy_from_slice(buffer[4]);
 
     let socket_v4 = SocketAddrV4::new(Ipv4Addr::new(buffer[0], buffer[1], buffer[2], buffer[3]), u16::from_be_bytes([buffer[4], buffer[5]]));
-    TcpStream::connect(socket_v4).map_err(| _ | ReplyCode::NetworkUnreachable)
+    TcpStream::connect(socket_v4).map_err(|_| ReplyCode::NetworkUnreachable)
 }
 
 fn ipv6_connection(buffer: &mut [u8; 13]) -> Result<TcpStream, ReplyCode> {
@@ -269,12 +269,12 @@ fn domain_name_connection(stream: &mut TcpStream) -> Result<TcpStream, ReplyCode
         }
     };
 
-    let length   = domain_buffer[0] as usize;
+    let length = domain_buffer[0] as usize;
     println!("length : {}", length);
 
     let mut domain_vec: Vec<u8> = vec![0; length + 2];
     if stream.read(&mut domain_vec).is_err() {
-        return Err(ReplyCode::NetworkUnreachable)
+        return Err(ReplyCode::NetworkUnreachable);
     }
 
     //No http because of DNS
@@ -289,5 +289,5 @@ fn domain_name_connection(stream: &mut TcpStream) -> Result<TcpStream, ReplyCode
     let port: u16 = u16::from_be_bytes([domain_vec[length], domain_vec[(length + 1)]]);
 
     println!("{:?} : {:?}", address, port);
-    TcpStream::connect((address, port)).map_err( |_| ReplyCode::NetworkUnreachable)
+    TcpStream::connect((address, port)).map_err(|_| ReplyCode::NetworkUnreachable)
 }
