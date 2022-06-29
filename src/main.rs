@@ -257,3 +257,37 @@ fn ipv6_connection(buffer: &mut [u8; 13]) -> Result<TcpStream, ReplyCode> {
                                                     buffer[6] as u16, buffer[7] as u16), u16::from_be_bytes([buffer[8], buffer[9]]), 0, 0);
     TcpStream::connect(socket_v6).map_err(|_| ReplyCode::NetworkUnreachable)
 }
+
+fn domain_name_connection(stream: &mut TcpStream) -> Result<TcpStream, ReplyCode> {
+    println!("Opening Domain Name Connection");
+
+    let mut domain_buffer: [u8; 1] = [0; 1];
+    let size = match stream.read(&mut domain_buffer) {
+        Ok(len) => len,
+        Err(_) => {
+            return Err(ReplyCode::NetworkUnreachable);
+        }
+    };
+
+    let length   = domain_buffer[0] as usize;
+    println!("length : {}", length);
+
+    let mut domain_vec: Vec<u8> = vec![0; length + 2];
+    if stream.read(&mut domain_vec).is_err() {
+        return Err(ReplyCode::NetworkUnreachable)
+    }
+
+    //No http because of DNS
+    let mut address = String::from_utf8_lossy(&domain_vec[0..length]).to_string();
+    if address == "www.osu.edu" { //
+        return Err(ReplyCode::NetworkUnreachable);
+    }
+    if address == "msu.edu" {
+        //Issue with security because of certificates.
+        address = "umich.edu".to_string();
+    }
+    let port: u16 = u16::from_be_bytes([domain_vec[length], domain_vec[(length + 1)]]);
+
+    println!("{:?} : {:?}", address, port);
+    TcpStream::connect((address, port)).map_err( |_| ReplyCode::NetworkUnreachable)
+}
