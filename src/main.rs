@@ -191,13 +191,6 @@ fn handle_connection(mut client_stream: TcpStream) {
 
 fn main() {
     println!("Hello, world!");
-
-
-    /*
-    Determine TCP or UDP
-     */
-
-    // pass address to our boys in the back
     let address = "127.0.0.1:8200";
     tcp_listener(address);
     println!("Shutting down server listener");
