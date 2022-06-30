@@ -53,7 +53,6 @@ fn handle_connection(mut client_stream: TcpStream) {
     if nmethods_buffer[0] != SOCKS5VER {
         println!("Error with unsupported protocol.");
         return;
-//Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
     }
 
 
