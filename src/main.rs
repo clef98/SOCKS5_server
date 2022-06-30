@@ -88,14 +88,12 @@ fn handle_connection(mut client_stream: TcpStream) {
     if buffer[0] != SOCKS5VER {
         println!("Error with unsupported protocol.");
         return;
-//Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
     }
 
 //UDP ASSOCIATE and BIND are not supported.
     if buffer[1] != CMDCONNECT {
         println!("Error with unsupported commands: {}", buffer[1]);
         return;
-//Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only connect cmd is supported!"));
     }
 
 //vp4 10 bytes
