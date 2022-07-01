@@ -96,7 +96,7 @@ fn handle_connection(mut client_stream: TcpStream) {
         return;
     }
 
-//vp4 10 bytes
+//vp4 10 bytes TEST COMMIT
 //vp6 14 bytes
 //domain 256 bytes
 //4 bytes are used for version, cmd, rsv, and atyp. That leaves # - 4 sized arrays for each address type.
