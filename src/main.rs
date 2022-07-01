@@ -48,7 +48,6 @@ fn handle_connection(mut client_stream: TcpStream) {
         println!("Error with reading first two bytes in request.");
         return;
     };
-//implement authentication
 
     if nmethods_buffer[0] != SOCKS5VER {
         println!("Error with unsupported protocol.");
